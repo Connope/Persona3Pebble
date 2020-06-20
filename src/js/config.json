@@ -1,0 +1,43 @@
+[
+	{
+		"type" : "heading",
+		"defaultValue" : "Watchface Configuration"
+	},
+	{
+		"type" : "section",
+		"items" : [
+			{
+				"type" : "select",
+				"id" : "date_format",
+				"messageKey" : "date_format",
+				"defaultValue" : "1",
+				"label" : "Date Format",
+				"options" : [
+					{
+						"label" : "MMDD",
+						"value" : 1
+					},
+					{
+						"label" : "DDMM",
+						"value" : 2
+					},
+					{
+						"label" : "Off",
+						"value" : 0
+					}
+				]
+			},
+			{
+				"type" : "toggle",
+				"id" : "vibrate_on_disconnect",
+				"messageKey" : "vibrate_on_disconnect",
+				"label" : "Enable Vibrate on Disconnect",
+				"defaultValue" : true
+			}
+		]
+	},
+	{
+    "type": "submit",
+    "defaultValue": "Save Settings"
+	}
+]

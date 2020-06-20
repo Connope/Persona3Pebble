@@ -1,4 +1,6 @@
 #include <pebble.h>
+#include <pebble-events/pebble-events.h>
+#include "enamel.h"
 
 static Window *windowMain;
 static TextLayer *layerTime, *layerDate, *layerWeekday;
@@ -26,7 +28,7 @@ static char tmpWeekday[] = "A";
 static char tmpTime[] = "AA";
 static char varTime[] = "AA";
 
-
+static EventHandle* s_evt_handler;
 
 static void bluetooth_callback(bool connected) {
     // Show the Dark Hour background if bluetooth is disconnected.
@@ -66,11 +68,12 @@ static void bluetooth_callback(bool connected) {
         
         layer_set_hidden(bitmap_layer_get_layer(layerWord), true);
     }
-
+	
     // Vibrate on disconnect.
-    if( !connected ) {
+    if(!connected && enamel_get_vibrate_on_disconnect()) {
         vibes_double_pulse();
     }
+	
 }
 
 
@@ -104,23 +107,48 @@ static void update_time() {
     strftime(date_buffer, sizeof(date_buffer), "%e", tick_time);
     strftime(tmpWeekday, sizeof(tmpWeekday), "%w", tick_time);
     
-    //Read the first character in the month buffer and see if it is the number 0. If so, get rid of it.
-    if ( strncmp(month_buffer,"0",1) == 0 ) {
-        strncpy(month_buffer," ",1);
-    }
     
-    //Copy the month into the full date buffer.
-    strcpy(full_date_buffer,month_buffer);
-    
-    //Add the / to the full buffer.
-    strcat(full_date_buffer,"/");
- 
-    //Add the date to the end as well.
-    //Note: checking for a zero in the date is not neccesary, due to it filling the first number with a space anyway.
-    strcat(full_date_buffer,date_buffer);
-    
-    //Set the date text to the full buffer.
-    text_layer_set_text(layerDate, full_date_buffer);
+	switch(enamel_get_date_format())	{
+		case DATE_FORMAT_OFF : 
+			text_layer_set_text(layerDate, "");
+			break;
+		case DATE_FORMAT_MMDD :
+			//Read the first character in the month buffer and see if it is the number 0. If so, get rid of it.
+			if ( strncmp(month_buffer,"0",1) == 0 ) {
+				strncpy(month_buffer," ",1);
+			}		
+			//Copy the month into the full date buffer.
+			strcpy(full_date_buffer,month_buffer);
+		
+			//Add the / to the full buffer.
+			strcat(full_date_buffer,"/");
+	 
+			//Add the date to the end as well.
+			strcat(full_date_buffer,date_buffer);
+			
+			//Set the date text to the full buffer.
+			text_layer_set_text(layerDate, full_date_buffer);
+			break;
+		case DATE_FORMAT_DDMM :
+		    //Read the first character in the month buffer and see if it is the number 0. If so, get rid of it.
+			if ( strncmp(month_buffer,"0",1) == 0 ) {
+				strncpy(month_buffer,month_buffer + 1,1);
+				strncpy(month_buffer + 1," ",1);
+			}
+			//Copy the date into the full date buffer.
+			strcpy(full_date_buffer,date_buffer);
+			
+			//Add the / to the full buffer.
+			strcat(full_date_buffer,"/");
+		 
+			//Add the month to the end as well.
+			strcat(full_date_buffer, month_buffer);
+			
+			//Set the date text to the full buffer.
+			text_layer_set_text(layerDate, full_date_buffer);
+			break;
+	}
+	
 
     //If the hour has changed.
     if ( strcmp(varTime,tmpTime) != 0 ){
@@ -182,6 +210,8 @@ static void update_time() {
         }
         bitmap_layer_set_bitmap(layerWord, sprWord);
     }
+	
+	bluetooth_callback(connection_service_peek_pebble_app_connection());
 }
 
 
@@ -352,7 +382,6 @@ static void main_window_load(Window *window) {
     // Initialize the display
     update_time();
 
-    bluetooth_callback(connection_service_peek_pebble_app_connection());
 }
 
 static void main_window_unload(Window *window) {
@@ -388,6 +417,13 @@ static void main_window_unload(Window *window) {
 
 static void init() {
     // Pebble-y init stuff.
+	enamel_init();
+	
+	s_evt_handler = enamel_settings_received_subscribe(update_time,NULL);
+  
+	// call pebble-events app_message_open function 
+	events_app_message_open(); 
+	
     windowMain = window_create();
     window_set_window_handlers(windowMain, (WindowHandlers) {
         .load = main_window_load,
@@ -403,6 +439,9 @@ static void init() {
 
 static void deinit() {
     window_destroy(windowMain);
+	// Deinit Enamel to unregister App Message handlers and save settings 
+	enamel_settings_received_unsubscribe(s_evt_handler);
+	enamel_deinit();
 }
 
 int main(void) {
